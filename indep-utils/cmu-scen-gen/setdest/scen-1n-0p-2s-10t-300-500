@@ -1,0 +1,30 @@
+#
+# nodes: 3, pause: 0.00, max speed: 2.00, max x: 300.00, max y: 500.00
+#
+$node_(0) set X_ 123.258692011658
+$node_(0) set Y_ 7.165026266669
+$node_(0) set Z_ 0.000000000000
+$node_(1) set X_ 185.500476156384
+$node_(1) set Y_ 279.346322897830
+$node_(1) set Z_ 0.000000000000
+$node_(2) set X_ 118.304087130178
+$node_(2) set Y_ 376.164419749332
+$node_(2) set Z_ 0.000000000000
+$ns_ at 0.000000000000 "$node_(0) setdest 181.800862824214 15.864929370560 1.270724658927"
+$ns_ at 0.000000000000 "$node_(1) setdest 286.891553498209 232.085601490411 0.696104662677"
+$ns_ at 0.000000000000 "$node_(2) setdest 159.823380676858 98.795402573758 0.492520268179"
+$god_ set-dist 0 1 16777215
+$god_ set-dist 0 2 16777215
+$god_ set-dist 1 2 1
+#
+# Destination Unreachables: 2
+#
+# Route Changes: 0
+#
+# Link Changes: 0
+#
+# Node | Route Changes | Link Changes
+#    0 |             0 |            0
+#    1 |             0 |            0
+#    2 |             0 |            0
+#

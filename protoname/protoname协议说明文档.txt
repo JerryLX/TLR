@@ -1,0 +1,328 @@
+如何把自己新写的协议添加到NS2中（以添加protoname协议为例）
+
+step 1：我们在ns目录下建立一个protoname目录。
+此目录包含protoname.h，protoname.cc，protoname_pkt.h，protoname_rtable.h，protoname_rtable.cc五个文件。
+五个文件的具体功能和作用如下：
+
+（1）protoname.h 定义必要的计时器和路由代理
+
+（2）protoname.cc 执行计时器、路由代理和Tcl文件
+
+（3）protoname_pkt.h 声明protoname路由协议需要在无线自组网节点交换的数据包
+
+（4）protoname_rtable.h 声明我们自己的路由选择表
+
+（5）protoname_rtable.cc 执行路由选择表
+
+ protoname.h和protoname.cc中，定义 class Protoname : public Agent、static class ProtonameClass : public TclClass{} class_rtProtoProtoname;
+
+
+step 2：我们需要对ns2中的一些文件进行修改，来使这个协议在tcl中被调用，需要修改的文件有以下几个,你可以在ns目录下找到它们：
+
+Common/packet.h
+
+Trace/cmu-trace.h
+
+Trace/cmu-trace.cc
+
+Tcl/lib/ns-packet.tcl
+
+Tcl/lib/ns-default.tcl
+
+Tcl/lib/ns-lib.tcl
+
+Queue/priqueue.cc
+
+Makefile
+
+
+需要修改的具体内容（在需要修改的地方添加红色的字）
+
+1.Common/packet.h （两个需要修改的地方）
+
+1: enum packet_t {
+
+2: PT_TCP,
+
+3: PT_UDP,
+
+4: PT_CBR,
+
+5: /* ... much more packet types ... */
+
+6: PT_PROTONAME,
+
+7: PT_NTYPE // This MUST be the LAST one
+
+8: };
+
+=======================================
+
+1: p_info() {
+
+2: name_[PT_TCP]= "tcp";
+
+3: name_[PT_UDP]= "udp";
+
+4: name_[PT_CBR]= "cbr";
+
+5: /* ... much more names ... */
+
+6: name_[PT_PROTONAME]= "protoname";
+
+7: }
+
+2.Trace/cmu-trace.h （一个）
+
+1: class CMUTrace : public Trace {
+
+2: /* ... definitions ... */
+
+3: private:
+
+4: /* ... */
+
+5: void format_aodv(Packet *p, int offset);
+
+6: void format_protoname(Packet *p, int offset);
+
+7: };
+
+3.Trace/cmu-trace.cc （三个，先在最上面加头文件，在找一个合适的地方加函数）
+
+1: #include <protoname/protoname_pkt.h>
+
+2:
+
+3: /* ... */
+
+4:
+
+5: void
+
+6: CMUTrace::format_protoname(Packet *p, int offset)
+
+7: {
+
+8: struct hdr_protoname_pkt* ph = HDR_PROTONAME_PKT(p);
+
+9:
+
+10: if (pt_->tagged()) {
+
+11: sprintf(pt_->buffer() + offset,
+
+12: "-protoname:o %d -protoname:s %d -protoname:l %d ",
+
+13: ph->pkt_src(),
+
+14: ph->pkt_seq_num(),
+
+15: ph->pkt_len());
+
+16: }
+
+17: else if (newtrace_) {
+
+18: sprintf(pt_->buffer() + offset,
+
+19: "-P protoname -Po %d -Ps %d -Pl %d ",
+
+20: ph->pkt_src(),
+
+21: ph->pkt_seq_num(),
+
+22: ph->pkt_len());
+
+23: }
+
+24: else {
+
+25: sprintf(pt_->buffer() + offset,
+
+26: "[protoname %d %d %d] ",
+
+27: ph->pkt_src(),
+
+28: ph->pkt_seq_num(),
+
+29: ph->pkt_len());
+
+30: }
+
+31: }
+
+=========================================
+
+1: void
+
+2: CMUTrace::format(Packet* p, const char *why)
+
+3: {
+
+4: /* ... */
+
+5: case PT_PING:
+
+6: break;
+
+7:
+
+8: case PT_PROTONAME:
+
+9: format_protoname(p, offset);
+
+10: break;
+
+11:
+
+12: default:
+
+13: /* ... */
+
+14: }
+
+4.Tcl/lib/ns-packet.tcl（一个）
+
+1: foreach prot {
+
+2: Protoname
+
+3: AODV
+
+4: ARP
+
+5: # ...
+
+6: NV
+
+7: } {
+
+8: add-packet-header $prot
+
+9: }
+
+5.Tcl/lib/ns-default.tcl（一个）
+
+1: # ...
+
+2: # Defaults defined for Protoname
+
+3: Agent/Protoname set accessible_var_ true
+
+6.Tcl/lib/ns-lib.tcl（两个）
+
+1: Simulator instproc create-wireless-node args {
+
+2: # ...
+
+3: switch -exact $routingAgent_ {
+
+4: Protoname {
+
+5: set ragent [$self create-protoname-agent $node]
+
+6: }
+
+7: # ...
+
+8: }
+
+9: # ...
+
+10: }
+
+ 
+
+=======================================
+
+1: Simulator instproc create-protoname-agent { node } {
+
+2: # Create Protoname routing agent
+
+3: set ragent [new Agent/Protoname [$node node-addr]]
+
+4: $self at 0.0 "$ragent start"
+
+5: $node set ragent_ $ragent
+
+6: return $ragent
+
+7: }
+
+7.Queue/priqueue.cc（一个）
+
+1: void
+
+2: PriQueue::recv(Packet *p, Handler *h)
+
+3: {
+
+4: struct hdr_cmn *ch = HDR_CMN(p);
+
+5:
+
+6: if (Prefer_Routing_Protocols) {
+
+7:
+
+8: switch(ch->ptype()) {
+
+9: case PT_DSR:
+
+10: case PT_MESSAGE:
+
+11: case PT_TORA:
+
+12: case PT_AODV:
+
+13: case PT_PROTONAME:
+
+14: recvHighPriority(p, h);
+
+15: break;
+
+16:
+
+17: default:
+
+18: Queue::recv(p, h);
+
+19: }
+
+20: }
+
+21: else {
+
+22: Queue::recv(p, h);
+
+23: }
+
+24: }
+
+8.Makefile（一个）
+
+1: OBJ_CC = \
+
+2: tools/random.o tools/rng.o tools/ranvar.o common/misc.o common/timer-handler.o \
+
+3: # ...
+
+4: protoname/protoname.o protoname/protoname_rtable.o \
+
+5: # ...
+
+6: $(OBJ_STL)
+
+step 3：编译
+
+在ns目录下输入下名命令进行编译：
+
+$ make clean
+
+$ touch common/packet.cc
+
+$ make
+
+
+
