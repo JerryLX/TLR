@@ -218,17 +218,7 @@ protected:
 	SatLL* satll_;
 	Queue* queue_;
 	ErrorModel* errmodel_;
-	
-// MODIFIED(wzf)
-public:
-	// 返回链路类型
-	// 	1 卫星 to 卫星
-	// 	0 卫星 to 用户
-	int get_link_type() { return link_type_; }
 
-private:
-	int link_type_;
-// MODIFIED END 
 };
 
 #endif

@@ -11,10 +11,6 @@
 #include "satroute.h"
 #include "satlink.h"
 
-// MODIFIED(wzf)
-#include "sattrace.h"
-// MODIFIED END
-
 static class SatStateCheckMgrClass : public TclClass {
 public:
 		SatStateCheckMgrClass() : TclClass("StateCheckManager") {}
@@ -33,6 +29,7 @@ double SatStateCheckMgr::sat_statecheck_int_ = 0.005;
 SatStateCheckMgr::SatStateCheckMgr():timer_(this)
 {
 	bind("sat_statecheck_int_", &sat_statecheck_int_);
+	SatStateCheckMgr::sat_statecheck_int_ = 0.005;
 }
 
 int SatStateCheckMgr::command(int argc, const char*const* argv)
@@ -67,16 +64,10 @@ void SatStateCheckMgr::state_check()
 	localThreshold1 = 0.6875;
 	localThreshold2 = 0.9375;
 
-	// compute queue occupancy rate: Lc/Lq
-	// COMMENTS(wzf)
-	// 考虑本地的链路状态及链路的下一颗卫星的状态
-	// COMMENTS END
+	//compute queue occupancy rate: Lc/Lq
 	for (slhp = (SatLinkHead*) node_->linklisthead().lh_first; slhp;
 		    slhp = (SatLinkHead*) slhp->nextlinkhead() )
 	{
-		// COMMENTS(wzf)
-		// 这里也只考虑了卫星节点之间的队列，而没有考虑卫星到地面用户的队列
-		// COMMENTS END
 		if (slhp->type() == LINK_ISL_INTERPLANE
 				|| slhp->type() == LINK_ISL_INTRAPLANE) {
 			phytxp = (Phy *) slhp->phy_tx();
@@ -116,11 +107,8 @@ void SatStateCheckMgr::state_check()
 
 	threshold1 = 0.3333;
 	threshold2 = 0.6666;
-	
-	// compare average queue occupancy with two thresholds here
-	// COMMENTS(wzf)
-	// 纯粹考虑本地整体链路利用率继而设置本卫星节点的状态
-	// COMMENTS END
+
+	//compare average queue occupancy with two thresholds here
 	if (node_->satqueuestate_ == GREEN) {
 		if ((ratio >= threshold1) && (ratio < threshold2)) {
 			statechange = 1;
@@ -151,7 +139,7 @@ void SatStateCheckMgr::state_check()
 
 	//notify the neighbors
 	if (statechange) {
-		printf("state changed here:%d,now:%d\n", node_->address(),node_->satqueuestate_); // for test,2012.10.09
+		//printf("state changed here:%d,now:%d\n", node_->address(),node_->satqueuestate_); // for test,2012.10.09
 		for (slhp = (SatLinkHead*) node_->linklisthead().lh_first; slhp; slhp =
 				(SatLinkHead*) slhp->nextlinkhead()) {
 			int type = slhp->type();
@@ -161,12 +149,7 @@ void SatStateCheckMgr::state_check()
 				channelp = phytxp->channel();
 				phyrxp = channelp->ifhead_.lh_first;
 				recvnode = (SatNode*) phyrxp->node();
-				// MODIFIED(wzf)
 				//printf("%d\n", recvnode->address()); //for test,20121009
-				// MODIFIED END
-				// COMMENTS(wzf)
-				// 注意下面的phytxp->node()，其实就是node_
-				// COMMENTS END
 				desAddr = ((SatNode*) phytxp->node())->address();
 				for (int i = 0; i < NEIGHBORS; i++) {
 					if (recvnode->neistate[i].nexthop == desAddr) {
@@ -177,16 +160,10 @@ void SatStateCheckMgr::state_check()
 		}
 	}
 	// check the waitingQueue
-	// COMMENTS(wzf)
-	// 这里检查Waiting Queue，通过ratioCount参数使得检查间隔同文章中的30ms一致
-	// COMMENTS END
 	node_->ratioCount_++;
 	if (node_->ratioCount_ == RATIO) {
 		WQPacket* WQpkt;
 		node_->waitingQueue->resetIterator();
-		// COMMENTS(wzf)
-		// 检查每一个数据包
-		// COMMENTS END
 		while ((WQpkt = node_->waitingQueue->getNext()) != 0) {
 			hdr_cmn *hdrc = HDR_CMN (WQpkt->pkt);
 			hdr_satMPT *satMPTh = HDR_SATMPT(WQpkt->pkt);
@@ -225,12 +202,6 @@ void SatStateCheckMgr::state_check()
 							node_->waitingQueue->outNumAdd();
 						} else { // ISL to the previous node is off,refind the route
 							printf("previous ISL to the previous hop is off");
-							// MODIFIED
-							// 将丢弃的数据包记录下来
-							SatNode* satnodep = (SatNode*)node_;
-							if (satnodep->trace())
-								satnodep->trace()->traceonly(WQpkt->pkt);
-							// MODIFIED END
 							Packet::free(WQpkt->pkt);
 							node_->waitingQueue->remove(WQpkt);
 							node_->waitingQueue->dropNumAdd();
@@ -249,37 +220,42 @@ void SatStateCheckMgr::state_check()
 		}
 		node_->ratioCount_ = 0;
 	}
-	
-	// Refresh the global route
-	// COMMENTS(wzf)
-	// 
-	// COMMENTS END
+
+	//refresh the global route
 	if (SatRouteObject::instance().addPeriod() >= ROUTEREFRESHPERIOD) {
-		printf("Refresh the global route at time %f...\n", NOW);
-		// MODIFIED(wzf)
-		//SatRouteObject::instance().recompute_Global();
-		// 只计算卫星网络的拓扑
-		SatRouteObject::instance().recompute_sat_Global();
-		// MODIFIED END
+		double time = Scheduler::instance().clock();
+		printf("Refresh the global route at time %f...\n",time);
+		SatRouteObject::instance().recompute_Global();
+
 		SatRouteObject::instance().resetPeriod();
-		
+
 		int in,out,drop,remain;
-		in = out = drop = remain = 0;
+		in=out=drop=remain=0;
 		SatNode *snodep = (SatNode*) Node::nodehead_.lh_first;
 		while (snodep != 0) {
 			int curNode = snodep->address();
 			if (curNode <= 65) // satellite node
-			{
-				in	+= snodep->waitingQueue->inNum();
-				out	+= snodep->waitingQueue->outNum();
-				drop	+= snodep->waitingQueue->dropNum();
-				remain	+= snodep->waitingQueue->length();
+					{
+				in += snodep->waitingQueue->inNum();
+				out += snodep->waitingQueue->outNum();
+				drop += snodep->waitingQueue->dropNum();
+				remain += snodep->waitingQueue->length();
 			}
 			snodep = (SatNode*) snodep->nextnode();
 		}
 		printf("IN:%d,OUT:%d,DROP:%d,REMAIN:%d\n",in,out,drop,remain);
 	}
-	
+	else if(SatRouteObject::instance().period == ROUTECOMPUTEPERIOD){
+		double time = Scheduler::instance().clock();
+		printf("Recompute at time %f...\n",time);
+
+		SatRouteObject::instance().just_compute();
+
+		//by lixu at 2016.12.5
+		//compare route
+		SatRouteObject::instance().compare_route();
+	}
+
 	timer_.resched(sat_statecheck_int_);
 }
 

@@ -141,7 +141,7 @@ set udp0 [new Agent/UDP]
 $ns attach-agent $n100 $udp0
 set cbr0 [new Application/Traffic/CBR]
 $cbr0 attach-agent $udp0
-$cbr0 set interval_ 60.01
+$cbr0 set interval_ 0.5
 
 set null0 [new Agent/Null]
 $ns attach-agent $n101 $null0
@@ -153,7 +153,7 @@ $ns at 1.0 "$cbr0 start"
 set satrouteobject_ [new SatRouteObject]
 $satrouteobject_ compute_routes
 
-$ns at 30.0 "finish" ; # one earth rotation 
+$ns at 20 "finish" ; # one earth rotation 
 
 proc finish {} {
 	global ns outfile 

@@ -116,7 +116,6 @@ int SatNode::command(int argc, const char*const* argv) {
 			return (TCL_OK);
 		}
 	}
-	
 	if (argc == 3) {
 		if (strcmp(argv[1], "set_uplink") == 0) {
 			uplink_ = (SatChannel *) TclObject::lookup(argv[2]);
@@ -185,9 +184,6 @@ int SatNode::command(int argc, const char*const* argv) {
 			}
 			int i = 0;
 			while((neistate[i].nexthop)!=-1) i++;
-			// COMMENTS(wzf)
-			// 设置到邻居节点的链路状态及邻居卫星的状态
-			// COMMENTS END
 			neistate[i].nexthop = neighbornode->address();
 			neistate[i].state = GREEN;
 			linkAndNxtHop[i].nexthop = neighbornode->address();
@@ -197,15 +193,6 @@ int SatNode::command(int argc, const char*const* argv) {
 //			printf("neighbor:%d\n",neistate[i].nexthop);
 //			printf("state:%d\n",neistate[i].state);
 //			printf("ragent:%ld\n",(long)ragent_);
-			return (TCL_OK);
-		} else if (strcmp(argv[1], "set_node_type") == 0) {
-			int itmp = atoi(argv[2]);
-			if (itmp != 0 && itmp != 1) {
-				tcl.resultf("Invalid node type: %s\n", argv[2]);
-				return (TCL_ERROR);
-			}
-			
-			node_type_ = itmp;
 			return (TCL_OK);
 		}
 	}
@@ -219,7 +206,6 @@ int SatNode::addNode(int nodenum)
 		memset(satnodelist_, 0, MAXSATNODELIST * sizeof(satnodelist_[0]));
 		maxsatnodelist_ = MAXSATNODELIST;
 	}
-	
 	assert(nodenum < 2*maxsatnodelist_);
 	if (nodenum >= maxsatnodelist_) {
 		// Double size of array
@@ -300,12 +286,12 @@ void SatNode::dumpSats()
 				continue; // this link interface is not attached
 			// need something in here for txs.
 			peer_sposp = peer_snodep->position();
-                        printf("%.2f\t%.2f\t%.2f\t%.2f\t%d\n",
-				RAD_TO_DEG(SatGeometry::get_latitude(sposp->coord())),
-				RAD_TO_DEG(SatGeometry::get_longitude(sposp->coord())),
-				RAD_TO_DEG(SatGeometry::get_latitude(peer_sposp->coord())), 
-				RAD_TO_DEG(SatGeometry::get_longitude(peer_sposp->coord())),
-				linktype);
+                        printf("%.2f\t%.2f\t%.2f\t%.2f\t%d\n", 
+			 RAD_TO_DEG(SatGeometry::get_latitude(sposp->coord())),
+			 RAD_TO_DEG(SatGeometry::get_longitude(sposp->coord())),
+			 RAD_TO_DEG(SatGeometry::get_latitude(peer_sposp->coord())), 
+			 RAD_TO_DEG(SatGeometry::get_longitude(peer_sposp->coord())),
+			 linktype);
 		}
 	}
 	printf("\nDumped satellites at time %.2f\n\n", NOW);

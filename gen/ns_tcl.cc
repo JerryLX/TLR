@@ -6844,9 +6844,6 @@ $self cmd set_handoff_mgr [$self set hm_]\n\
 $self set sscm_ [new StateCheckManager]\n\
 $self cmd set_statecheck_mgr [$self set sscm_]\n\
 [$self set sscm_] setnode $self\n\
-\n\
-$self cmd set_node_type 1\n\
-\n\
 } elseif {$nodetype_ == \"geo\" || $nodetype_ == \"geo-repeater\"} {\n\
 if {[llength $args] != 1 } {\n\
 puts \"Error:  satNodeType_ is geo, but number\\\n\
@@ -6868,8 +6865,6 @@ $self cmd set_position [$self set pos_]\n\
 $self set hm_ [new HandoffManager/Term]\n\
 $self cmd set_handoff_mgr [$self set hm_]\n\
 [$self set hm_] setnode $self\n\
-\n\
-$self cmd set_node_type 0\n\
 } else {\n\
 puts \"Error:  satNodeType_ not set appropriately:\\\n\
 $satNodeType_ exiting\"\n\
@@ -7055,14 +7050,6 @@ $self addlinkhead $linkhead; # Add NetworkInterface to node's list\n\
 $linkhead target $ll; \n\
 $linkhead set_type $linktype\n\
 $linkhead set type_ $linktype\n\
-\n\
-if {$linktype == \"gsl\" || $linktype == \"polar\"} {\n\
-$linkhead cmd set_link_type 0\n\
-}\n\
-\n\
-if {$linktype == \"intraplane\" || $linktype == \"interplane\" || $linktype == \"crossseam\"} {\n\
-$linkhead cmd set_link_type 1\n\
-}\n\
 \n\
 $iif target [$self entry]\n\
 \n\
@@ -7362,7 +7349,7 @@ Agent/SatRoute set myaddr_       0        ;# My address\n\
 Mac/Sat set bandwidth_ 2Mb \n\
 \n\
 \n\
-StateCheckManager set sat_statecheck_int_ 0.006\n\
+StateCheckManager set sat_statecheck_int_ 0.005\n\
 \n\
 Simulator instproc attach-diffapp { node diffapp } {\n\
 $diffapp dr [$node get-dr]\n\

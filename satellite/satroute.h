@@ -43,15 +43,12 @@
 #include "route.h"
 #include "node.h"
 
-// MODIFIED(wzf)
-#include "satlink.h"
-// MODIFIED END
+#define ROUTER_PORT      0xff
+#define SAT_ROUTE_INFINITY 0x3fff
+#define MUlTIPATH_NUM	0x2
 
-#define ROUTER_PORT		0xff
-#define SAT_ROUTE_INFINITY	0x3fff
-#define MUlTIPATH_NUM		0x2
-
-#define ROUTEREFRESHPERIOD	100 * 66
+#define ROUTEREFRESHPERIOD 100*66
+#define ROUTECOMPUTEPERIOD 44*66
 
 // Entry in the forwarding table
 struct slot_entry {
@@ -64,6 +61,7 @@ struct slot_entry {
 //	int des;
 //	int nexthop;
 //};
+
 class SatNode;
 //
 //  Currently, this only implements centralized routing.  However, by 
@@ -72,37 +70,34 @@ class SatNode;
 //
 class SatRouteAgent : public Agent {
 public:
-	SatRouteAgent();
-	~SatRouteAgent();
-	int command(int argc, const char * const * argv);
-	
-	// centralized routing
-	void		clear_slots();
-	void		install(int dst, int next_hop, NsObject* p);
-	SatNode*	node() { return node_; }
-	int myaddr() {return myaddr_; }
-	slot_entry*	getSlot() {return slot_;}
-	int		get_nslot() {return nslot_;}
-	int		get_maxslot() {return maxslot_;}
-	virtual void	recv(Packet *, Handler *);
-	int 		checkState(int);
+  SatRouteAgent();
+  ~SatRouteAgent();
+  int command(int argc, const char * const * argv);
 
+  // centralized routing
+  void clear_slots();
+  void install(int dst, int next_hop, NsObject* p);
+  SatNode* node() { return node_; }
+  int myaddr() {return myaddr_; }
+  slot_entry* getSlot() {return slot_;}
+  int get_nslot() {return nslot_;}
+  int get_maxslot() {return maxslot_;}
+  virtual void recv(Packet *, Handler *);
+  int checkState(int);
 protected:
-	void forwardPacket(Packet*);
-	// MODIFIED(wzf)
-	void forwardPacket2(Packet*);
-	// MODIFIED END
-	int myaddr_;           // My address-- set from OTcl
-	
-	// centralized routing stuff
-	int		maxslot_;
-	int		nslot_;
-	slot_entry*	slot_;	// Node's forwarding table 
-	
-	int*		nexthop_record;		//Node's forwarded table
-	int		record_table_size;
-	void		alloc(int);	// Helper function
-	SatNode*	node_;
+  void forwardPacket(Packet*);
+  int myaddr_;           // My address-- set from OTcl
+
+  // centralized routing stuff
+  int maxslot_;
+  int nslot_;
+  slot_entry* slot_;	// Node's forwarding table 
+
+  int* nexthop_record;		//Node's forwarded table
+  int record_table_size;
+  void alloc(int);	// Helper function
+  SatNode* node_;
+  
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -113,54 +108,50 @@ protected:
 // in C++.  Single source shortest path routing is also supported.
 class SatRouteObject : public RouteLogic {
 public:
-	SatRouteObject(); 
-	static SatRouteObject& instance() {
-		return (*instance_);            // general access to route object
-	}
-	void	recompute();
-	void	recompute_node(int node);
-	void	recompute_Global();
-	int	command(int argc, const char * const * argv);        
-	int	data_driven_computation() { return data_driven_computation_; } 
-	void	insert_link(int src, int dst, double cost);
-	void	insert_link(int src, int dst, double cost, void* entry);
-	void* 	lookup_adj_entry(int src, int dst);
-	int	wiredRouting() { return wiredRouting_; }
-	int	addPeriod() { return period++; }
-	void	resetPeriod(){ period = 0; }
-	//void	hier_insert_link(int *src, int *dst, int cost);  // support hier-rtg?
-
-	// MODIFIED(wzf)
-	// 得到数据包的接收端所连接的卫星
-	int 	get_dst_sat(Packet* pkt);
-	// 得到链路另一端的指针
-	SatNode*get_peer(SatLinkHead* slhp);
-	// 计算所有卫星节点组成的路由
-	void	recompute_sat_Global();
-	// MODIFIED END
+  SatRouteObject(); 
+  ~SatRouteObject();
+  static SatRouteObject& instance() {
+	return (*instance_);            // general access to route object
+  }
+  void recompute();
+  void recompute_node(int node);
+  void just_compute_node(int node);
+  void recompute_Global();
+  void just_compute();
+  void compare_route();
+  int command(int argc, const char * const * argv);        
+  int data_driven_computation() { return data_driven_computation_; } 
+  void insert_link(int src, int dst, double cost);
+  void insert_link(int src, int dst, double cost, void* entry);
+  void* lookup_adj_entry(int src, int dst);
+  int wiredRouting() { return wiredRouting_;}
+  int addPeriod() {return period++;}
+  void resetPeriod(){period = 0;}
+//void hier_insert_link(int *src, int *dst, int cost);  // support hier-rtg?
+  int period;
 protected:
-	void	compute_topology();
-	// MODIFIED(wzf)
-	void 	recompute_sat_node(SatNode* satnode);
-	void	compute_sat_topology();
-	void	populate_sat_routing_tables(int node = -1);
-	// MODIFIED END
-	void	populate_routing_tables(int node = -1);
-	int	lookup(int src, int dst);
-	void*	lookup_entry(int src, int dst);
-	void	node_compute_routes(int node);
-	void	dump(); // for debugging only
-	
-	//add by chaomengyuan 2012.6.29
-	void	populate_rtable_for_node(int node,int dst);
-	
-	
-	static	SatRouteObject*  instance_;
-	int	metric_delay_;
-	int	suppress_initial_computation_;
-	int	data_driven_computation_;
-	int	wiredRouting_;
-	int	period;
+  void compute_topology();
+  void populate_routing_tables(int node = -1);
+  int lookup(int src, int dst);
+  void* lookup_entry(int src, int dst);
+  void node_compute_routes(int node);
+  void dump(); // for debugging only
+
+  //add by chaomengyuan 2012.6.29
+  void populate_rtable_for_node(int node,int dst);
+
+  //add by lixu 2016.12.04
+  void save_rtable_for_node(int node);
+
+
+  static SatRouteObject*  instance_;
+  int metric_delay_;
+  int suppress_initial_computation_;
+  int data_driven_computation_;
+  int wiredRouting_;
+  int diffcount_;
+  route_entry *route_before_;
+
 };
 
 #endif

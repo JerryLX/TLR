@@ -6,9 +6,9 @@
 
 struct hdr_satMPT {
 	//u_int8_t split_num ;
-	u_int8_t	important;
-	u_int16_t	route[MAXHOPS];
-	u_int16_t	routeLen;
+	u_int8_t important;
+	u_int16_t route[MAXHOPS];
+	u_int16_t routeLen;
 
 	//header access method
 	static int offset_;		//required by PacketHeaderManager
@@ -19,7 +19,7 @@ struct hdr_satMPT {
 
 	int emergeInRoute(int addr)
 	{
-		for (int i = 0; i < routeLen; i++) {
+		for (int i =0;i<routeLen;i++) {
 			if (route[i] == addr)
 				return i;
 		}
@@ -39,7 +39,7 @@ struct hdr_satMPT {
 
 	void resetRoute()
 	{
-		for (int i = 0; i < routeLen; i++)
+		for (int i =0;i<routeLen;i++)
 		{
 			route[i] = 0;
 		}

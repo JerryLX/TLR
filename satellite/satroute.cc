@@ -47,6 +47,8 @@ static const char rcsid[] =
 #include "satMPTPacket.h"
 //#include "satQSNPacket.h"
 #include <address.h>
+#include <iostream>
+using namespace std;
 
 int hdr_satMPT::offset_;
 static class SatMPTHeaderClass:public PacketHeaderClass{
@@ -167,14 +169,8 @@ void SatRouteAgent::forwardPacket(Packet * p) {
 	int dst = Address::instance().get_nodeaddr(iph->daddr());
 	// Here we need to have an accurate encoding of the next hop routing information
 	if (myaddr_ == dst) {
-		// MODIFIED(wzf)
 		printf("Error:  trying to forward a packet destined to self: %d\n",
 				myaddr_);
-		if (node_->trace()) {
-			// 记录丢弃的数据包
-			node_->trace()->traceonly(p);
-		}
-		// MODIFIED END
 		Packet::free(p);
 	}
 	//add curNode.ID into route
@@ -192,26 +188,19 @@ void SatRouteAgent::forwardPacket(Packet * p) {
 	//compute the BestRoute and the SubBestRoute for the pkt
 	//if (SatRouteObject::instance().data_driven_computation())
 	//	SatRouteObject::instance().recompute_node(myaddr_);
-	
+
 	if (SatNode::dist_routing_ == 0) {
-		if (slot_ == 0) {
-			// No routes to anywhere
+		if (slot_ == 0) { // No routes to anywhere
 			if (node_->trace())
 				node_->trace()->traceonly(p);
 			Packet::free(p);
 			return;
 		}
-		
-		if (myaddr_ == src || slot_[dst].next_hop[0] == dst) {
-			// COMMENTS(wzf)
-			// 注意判断语句中“或”，表示地面节点发送数据包，或者数据包到达接收端所连接的卫星节点
-			// COMMENTS END
-			// srcTer or Sat next to desTer,there is only one GSL
+		if (myaddr_ == src || slot_[dst].next_hop[0] == dst) { // srcTer or Sat next to desTer,there is only one GSL
 			hdrc->next_hop_ = slot_[dst].next_hop[0];
 			slot_[dst].entry[0]->recv(p, (Handler*) 0);
 		}
-		else {
-			//intermediate Sat node
+		else { //intermediate Sat node
 			int brn, sbrn;
 			brn = sbrn = -1;
 			//find the nextHop of BRN and SBRN
@@ -223,28 +212,15 @@ void SatRouteAgent::forwardPacket(Packet * p) {
 					break;
 				}
 			}
-			
-			if (sbrn != -1) {
-				// has 2+ nextHops
-				// COMMENTS(wzf)
-				// 有多于两条路径：最优和次最优
-				// COMMENTS END
+			if (sbrn != -1) { // has 2+ nextHops
 				int BRN = slot_[dst].next_hop[brn];
 				int SBRN = slot_[dst].next_hop[sbrn];
-				if ((satMPTh->emergeInRoute(BRN) < 0) && (satMPTh->emergeInRoute(SBRN) < 0)) {
-					// COMMENTS(wzf)
-					// 两条路径的下一跳都未见过
-					// COMMENTS END
+				if ((satMPTh->emergeInRoute(BRN) < 0)
+						&& (satMPTh->emergeInRoute(SBRN) < 0)) {
 					if (checkState(BRN) == GREEN) {
-						// COMMENTS(wzf)
-						// 最优路径为空闲状态，从最优走
-						// COMMENTS END
 						hdrc->next_hop_ = BRN;
 						slot_[dst].entry[brn]->recv(p, (Handler*) 0);
 					} else if (checkState(BRN) == YELLOW) {
-						// COMMENTS(wzf)
-						// 最优下一跳为黄灯，根据次优路径状态选择下一跳
-						// COMMENTS END
 						if (checkState(SBRN) == GREEN
 								|| checkState(SBRN) == YELLOW) { //take turns to transmit the pkt
 							std::map<std::pair<int, int>, int, comp>::iterator it =
@@ -279,9 +255,6 @@ void SatRouteAgent::forwardPacket(Packet * p) {
 								WQPacket* newWQpkt = (WQPacket*) malloc(
 										sizeof(struct WQPacket));
 								newWQpkt->nexthop = BRN;
-								// COMMENTS(wzf)
-								// 这次参数保证了数据包最多可以在PWQ中存在90ms
-								// COMMENTS END
 								newWQpkt->TTW = MTTW;
 								newWQpkt->pkt = p;
 								node_->waitingQueue->insert(newWQpkt);
@@ -294,12 +267,8 @@ void SatRouteAgent::forwardPacket(Packet * p) {
 						}
 					}
 				}
-				
 				if ((satMPTh->emergeInRoute(BRN) < 0)
 						&& (satMPTh->emergeInRoute(SBRN) >= 0)) {
-					// COMMENTS(wzf)
-					// 最优路径未见过，次优路径见过
-					// COMMENTS END
 					if (checkState(BRN) == GREEN
 							|| checkState(BRN) == YELLOW) {
 						hdrc->next_hop_ = BRN;
@@ -320,12 +289,8 @@ void SatRouteAgent::forwardPacket(Packet * p) {
 						}
 					}
 				}
-				
 				if ((satMPTh->emergeInRoute(BRN) >= 0)
 						&& (satMPTh->emergeInRoute(SBRN) < 0)) {
-					// COMMENTS(wzf)
-					// 最优路径见过，次优路径未见过
-					// COMMENTS END
 					if (checkState(SBRN) == GREEN
 							|| checkState(SBRN) == YELLOW) {
 						hdrc->next_hop_ = SBRN;
@@ -354,12 +319,8 @@ void SatRouteAgent::forwardPacket(Packet * p) {
 						toPreNode->recv(p, (Handler*) 0);
 					}
 				}
-				
 				if ((satMPTh->emergeInRoute(BRN) >= 0)
 						&& (satMPTh->emergeInRoute(SBRN) >= 0)) {
-					// COMMETNS(wzf)
-					// 最优和次优路径都见过
-					// COMMENTS END
 					int firstPos = satMPTh->emergeInRoute(myaddr_);
 					int preNodeAddr = satMPTh->route[firstPos - 1];
 					if (checkState(preNodeAddr) > 0) { // ISL to the previous node is still on
@@ -369,18 +330,13 @@ void SatRouteAgent::forwardPacket(Packet * p) {
 						hdrc->next_hop_ = preNodeAddr;
 						toPreNode->recv(p, (Handler*) 0);
 					} else { // ISL to the previous node is off
-						printf("SatRouteAgent: at node %d, ISL to the previous node is off\n", myaddr_);
-						if (node_->trace())
-							node_->trace()->traceonly(p);
+						printf("ISL to the previous node is off");
 						Packet::free(p);
 					}
 				}
 			}
 			else // has 1 nextHops
 			{
-				// COMMENTS(wzf)
-				// 只有一条路径
-				// COMMENTS END
 				int BRN = slot_[dst].next_hop[brn];
 				if (checkState(BRN) == GREEN
 						|| checkState(BRN) == YELLOW) {
@@ -435,348 +391,20 @@ void SatRouteAgent::recv (Packet * p, Handler *)
 		printf("Error:  distributed routing not available\n");
 		exit(1);
 	} else {
-		//forwardPacket(p);
-		// MODIFIED(wzf)
-		forwardPacket2(p);
-		// MODIFIED END
+		forwardPacket(p);
 	}
 
 }
 
-// COMMENTS(wzf)
-// 检查当前节点到邻居节点的状态
-// COMMENTS END
 int SatRouteAgent::checkState(int addr)
 {
-	for(int i = 0; i < NEIGHBORS; i++){
-		if(node_->linkAndNxtHop[i].nexthop == addr) {
+	for(int i=0;i<NEIGHBORS;i++){
+		if(node_->linkAndNxtHop[i].nexthop == addr){
 			return node_->linkAndNxtHop[i].state;
 		}
 	}
 	return 0;
 }
-
-// MODIFIED(wzf)
-// 转发数据包
-void SatRouteAgent::forwardPacket2(Packet* p) {
-	hdr_ip *iph = hdr_ip::access(p);
-	hdr_cmn *hdrc = HDR_CMN (p);
-	hdr_satMPT *satMPTh = HDR_SATMPT(p);
-	int lasthop;
-	int src = Address::instance().get_nodeaddr(iph->saddr());
-	int dst = Address::instance().get_nodeaddr(iph->daddr());
-	// Here we need to have an accurate encoding of the next hop routing information
-	if (myaddr_ == dst) {
-		printf("SatRouteAgent: Error trying to forward a packet destined to self: %d\n", myaddr_);
-		if (node_->trace()) {
-			node_->trace()->traceonly(p);
-		}
-		Packet::free(p);
-	}
-	//printf("SatRouteAgent: node %d received a packet from src(%d) to dst(%d)\n", myaddr_, src, dst);
-	//add curNode.ID into route
-	u_int16_t curNodeID = (u_int16_t) node_->address();
-	satMPTh->insertIntoRoute(curNodeID);
-
-	hdrc->direction() = hdr_cmn::DOWN; // send it down the stack
-	hdrc->addr_type_ = NS_AF_INET;
-	if (hdrc->last_hop_ == myaddr_)
-		lasthop = satMPTh->route[satMPTh->routeLen - 3]; // special for the situation when ISL to the next hop breaks down
-	else
-		lasthop = hdrc->last_hop_;
-	hdrc->last_hop_ = myaddr_; // for tracing purposes 
-	
-	// 数据包的接收端所连接的卫星节点
-	int dst_sat = SatRouteObject::instance().get_dst_sat(p);
-	if (dst_sat == -2) {
-		// 接收端没有连接到卫星节点，丢弃该数据包
-		if (node_->trace())
-			node_->trace()->traceonly(p);
-		Packet::free(p);
-		return;
-	}
-	//printf("The packet's last hop and dst sat are %d and %d respectively.\n", hdrc->last_hop_, dst_sat);
-	
-	//compute the BestRoute and the SubBestRoute for the pkt
-	//if (SatRouteObject::instance().data_driven_computation())
-	//	SatRouteObject::instance().recompute_node(myaddr_);
-	
-	// 没有路由表
-	if (node_->get_node_type() && slot_ == 0) {
-		// No routes to anywhere
-		if (node_->trace())
-			node_->trace()->traceonly(p);
-		Packet::free(p);
-		return;
-	}
-	
-	// 数据包的下一跳是卫星节点
-	if (node_->get_node_type() && dst_sat != myaddr_) {
-		//printf("The packet(%d -> %d) is on the satellite(%d) with chosen dst sat %d\n", src, dst, myaddr_, dst_sat);
-		dst = dst_sat;
-	//if (myaddr_ == src || slot_[dst].next_hop[0] == dst) {
-		// COMMENTS(wzf)
-		// 这个是地面节点调用或者数据包达到接收端连接的卫星节点
-		// COMMENTS END
-		// srcTer or Sat next to desTer,there is only one GSL
-	//	hdrc->next_hop_ = slot_[dst].next_hop[0];
-	//	slot_[dst].entry[0]->recv(p, (Handler*) 0);
-	//}
-	//else {
-		//intermediate Sat node
-		int brn, sbrn;
-		brn = sbrn = -1;
-		//find the nextHop of BRN and SBRN
-		for (int i = 0; i < MUlTIPATH_NUM; i++) {
-			if (slot_[dst].next_hop[i] != lasthop && brn == -1)
-				brn = i;
-			if (slot_[dst].next_hop[i] != lasthop && brn != i) {
-				sbrn = i;
-				break;
-			}
-		}
-		
-		if (sbrn != -1) {
-			// has 2+ nextHops
-			// COMMENTS(wzf)
-			// 有多于两条路径：最优和次最优
-			// COMMENTS END
-			int BRN = slot_[dst].next_hop[brn];
-			int SBRN = slot_[dst].next_hop[sbrn];
-			if ((satMPTh->emergeInRoute(BRN) < 0) && (satMPTh->emergeInRoute(SBRN) < 0)) {
-				// COMMENTS(wzf)
-				// 两条路径的下一跳都未见过
-				// COMMENTS END
-				if (checkState(BRN) == GREEN) {
-					// COMMENTS(wzf)
-					// 最优路径为空闲状态，从最优走
-					// COMMENTS END
-					hdrc->next_hop_ = BRN;
-					slot_[dst].entry[brn]->recv(p, (Handler*) 0);
-				} else if (checkState(BRN) == YELLOW) {
-					// COMMENTS(wzf)
-					// 最优下一跳为黄灯，根据次优路径状态选择下一跳
-					// COMMENTS END
-					if (checkState(SBRN) == GREEN
-							|| checkState(SBRN) == YELLOW) { //take turns to transmit the pkt
-						std::map<std::pair<int, int>, int, comp>::iterator it =
-								node_->record.find(
-										std::make_pair(src, dst));
-						if (it == node_->record.end()) {
-							node_->record.insert(
-									std::make_pair(std::make_pair(src, dst),
-											BRN));
-							hdrc->next_hop_ = BRN;
-							slot_[dst].entry[brn]->recv(p, (Handler*) 0);
-						} else if (it->second == BRN) {
-							it->second = SBRN;
-							hdrc->next_hop_ = SBRN;
-							slot_[dst].entry[sbrn]->recv(p, (Handler*) 0);
-						} else {
-							it->second = BRN;
-							hdrc->next_hop_ = BRN;
-							slot_[dst].entry[brn]->recv(p, (Handler*) 0);
-						}
-					} else { //SBRN.state = RED or SBR doesn't exist
-						hdrc->next_hop_ = BRN;
-						slot_[dst].entry[brn]->recv(p, (Handler*) 0);
-					}
-				} else { //BRN.state = RED
-					if (checkState(SBRN) == GREEN
-							|| checkState(SBRN) == YELLOW) {
-						hdrc->next_hop_ = SBRN;
-						slot_[dst].entry[sbrn]->recv(p, (Handler*) 0);
-					} else { //SBRN.state = RED or SBR doesn't exist
-						if (node_->waitingQueue->length() < WLMAXLENGTH) {
-							WQPacket* newWQpkt = (WQPacket*) malloc(
-									sizeof(struct WQPacket));
-							newWQpkt->nexthop = BRN;
-							// COMMENTS(wzf)
-							// 这次参数保证了数据包最多可以在PWQ中存在90ms
-							// COMMENTS END
-							newWQpkt->TTW = MTTW;
-							newWQpkt->pkt = p;
-							node_->waitingQueue->insert(newWQpkt);
-							node_->waitingQueue->inNumAdd();
-						} else {
-							//Packet::free(p);	// taking a chance is better than dropping it now
-							hdrc->next_hop_ = BRN;
-							slot_[dst].entry[brn]->recv(p, (Handler*) 0);
-						}
-					}
-				}
-			}
-			
-			if ((satMPTh->emergeInRoute(BRN) < 0)
-					&& (satMPTh->emergeInRoute(SBRN) >= 0)) {
-				// COMMENTS(wzf)
-				// 最优路径未见过，次优路径见过
-				// COMMENTS END
-				if (checkState(BRN) == GREEN
-						|| checkState(BRN) == YELLOW) {
-					hdrc->next_hop_ = BRN;
-					slot_[dst].entry[brn]->recv(p, (Handler*) 0);
-				} else { // BRN.state = RED
-					if (node_->waitingQueue->length() < WLMAXLENGTH) {
-						WQPacket* newWQpkt = (WQPacket*) malloc(
-								sizeof(struct WQPacket));
-						newWQpkt->nexthop = BRN;
-						newWQpkt->TTW = MTTW;
-						newWQpkt->pkt = p;
-						node_->waitingQueue->insert(newWQpkt);
-						node_->waitingQueue->inNumAdd();
-					} else {
-						//Packet::free(p);	// taking a chance is better than dropping it now
-						hdrc->next_hop_ = BRN;
-						slot_[dst].entry[brn]->recv(p, (Handler*) 0);
-					}
-				}
-			}
-			
-			if ((satMPTh->emergeInRoute(BRN) >= 0)
-					&& (satMPTh->emergeInRoute(SBRN) < 0)) {
-				// COMMENTS(wzf)
-				// 最优路径见过，次优路径未见过
-				// COMMENTS END
-				if (checkState(SBRN) == GREEN
-						|| checkState(SBRN) == YELLOW) {
-					hdrc->next_hop_ = SBRN;
-					slot_[dst].entry[sbrn]->recv(p, (Handler*) 0);
-				} else if (checkState(SBRN) == RED) {
-					if (node_->waitingQueue->length() < WLMAXLENGTH) {
-						WQPacket* newWQpkt = (WQPacket*) malloc(
-								sizeof(struct WQPacket));
-						newWQpkt->nexthop = SBRN;
-						newWQpkt->TTW = MTTW;
-						newWQpkt->pkt = p;
-						node_->waitingQueue->insert(newWQpkt);
-						node_->waitingQueue->inNumAdd();
-					} else {
-						//Packet::free(p);	// taking a chance is better than dropping it now
-						hdrc->next_hop_ = BRN;
-						slot_[dst].entry[brn]->recv(p, (Handler*) 0);
-					}
-				} else { //SBR doesn't exist,and ISL to previous node must be IntraISL and is thus always on
-					int firstPos = satMPTh->emergeInRoute(myaddr_);
-					int preNodeAddr = satMPTh->route[firstPos - 1];
-						SatLinkHead* toPreNode =
-							(SatLinkHead*) SatRouteObject::instance().lookup_adj_entry(
-									myaddr_, preNodeAddr);
-					hdrc->next_hop_ = preNodeAddr;
-					toPreNode->recv(p, (Handler*) 0);
-				}
-			}
-			
-			if ((satMPTh->emergeInRoute(BRN) >= 0)
-					&& (satMPTh->emergeInRoute(SBRN) >= 0)) {
-				// COMMETNS(wzf)
-				// 最优和次优路径都见过
-				// COMMENTS END
-				int firstPos = satMPTh->emergeInRoute(myaddr_);
-				int preNodeAddr = satMPTh->route[firstPos - 1];
-				if (checkState(preNodeAddr) > 0) { // ISL to the previous node is still on
-					SatLinkHead* toPreNode =
-							(SatLinkHead*) SatRouteObject::instance().lookup_adj_entry(
-									myaddr_, preNodeAddr);
-					hdrc->next_hop_ = preNodeAddr;
-					toPreNode->recv(p, (Handler*) 0);
-				} else { // ISL to the previous node is off
-					// MODIFIED(wzf)
-					//printf("ISL to the previous node is off");
-					//Packet::free(p);
-					printf("SatRouteAgent: at node %d, ISL to the previous node is off\n", myaddr_);
-					if (node_->trace())
-						node_->trace()->traceonly(p);
-					Packet::free(p);
-					// MODIFIED END
-				}
-			}
-		}
-		else // has 1 nextHops
-		{
-			// COMMENTS(wzf)
-			// 只有一条路径
-			// COMMENTS END
-			int BRN = slot_[dst].next_hop[brn];
-			if (checkState(BRN) == GREEN
-					|| checkState(BRN) == YELLOW) {
-				hdrc->next_hop_ = BRN;
-				slot_[dst].entry[brn]->recv(p, (Handler*) 0);
-			} else { // BRN.state = RED
-				if (node_->waitingQueue->length() < WLMAXLENGTH) {
-					WQPacket* newWQpkt = (WQPacket*) malloc(
-							sizeof(struct WQPacket));
-					newWQpkt->nexthop = BRN;
-					newWQpkt->TTW = MTTW;
-					newWQpkt->pkt = p;
-					node_->waitingQueue->insert(newWQpkt);
-					node_->waitingQueue->inNumAdd();
-				} else {
-					//Packet::free(p);	// taking a chance is better than dropping it now
-					hdrc->next_hop_ = BRN;
-					slot_[dst].entry[brn]->recv(p, (Handler*) 0);
-				}
-			}
-		}
-	//}
-		return;
-	}
-	
-	SatLinkHead* slhp = NULL;
-	SatNode* satnodep = NULL;
-	NsObject* link_entry = NULL;
-	
-	// 数据包的接收端连接到本卫星节点
-	if (node_->get_node_type() && dst_sat == myaddr_) {
-		//printf("The packet(%d -> %d) is on the satellite(%d) with chosen dst sat %d\n", src, dst, myaddr_, dst_sat);
-		int done = 0;
-		for (slhp = (SatLinkHead*) node_->linklisthead().lh_first; slhp; slhp = (SatLinkHead*)slhp->nextlinkhead()) {
-			if (!slhp->get_link_type() && slhp->linkup_) {
-				link_entry = slhp;
-				hdrc->next_hop_ = dst;
-				link_entry->recv(p, (Handler*)0);
-				done = 1;
-				break;
-			}
-		}
-		
-		if (!done) {
-			printf("SatRouteAgent: There something wrong with node %d in its downlink.\n", myaddr_);
-			if (node_->trace())
-				node_->trace()->traceonly(p);
-			Packet::free(p);
-		}
-		return;
-	}
-	
-	// 地面节点发送数据包
-	if (!node_->get_node_type()) {
-		//printf("The packet(%d -> %d) is on the terminal(%d) with chosen dst sat %d\n", src, dst, myaddr_, dst_sat);
-		slhp = (SatLinkHead*) node_->linklisthead().lh_first;
-		if (slhp->nextlinkhead() != NULL) {
-			printf("SatRouteAgent: node %d has more than one up link.\n", myaddr_);
-			exit(-1);
-		}
-		
-		link_entry = slhp;
-		
-		satnodep = SatRouteObject::instance().get_peer(slhp);
-		if (satnodep != NULL) {
-			hdrc->next_hop_ = satnodep->address();
-			link_entry->recv(p, (Handler*)0);
-		} else {
-			printf("SatRouteAgent: the peer of node %d is null.\n", myaddr_);
-			if (node_->trace())
-				node_->trace()->traceonly(p);
-			Packet::free(p);
-		}
-		return;
-	}
-	
-	printf("SatRouteAgent: You should never see this!\n");
-	exit(-1);
-}
-// MODIFIED END
 
 //###########################################################################
 
@@ -784,6 +412,8 @@ void SatRouteAgent::forwardPacket2(Packet* p) {
 #define ADJ_ENTRY(i, j) adj_[INDEX(i, j, size_)].entry
 #define ROUTE(i, j) route_[INDEX(i, j, size_)].next_hop
 #define ROUTE_ENTRY(i, j) route_[INDEX(i, j, size_)].entry
+
+#define ROUTEBEFORE(i,j) route_before_[INDEX(i,j, size_)].next_hop
 
 static class SatRouteObjectClass:public TclClass
 {
@@ -796,11 +426,17 @@ static class SatRouteObjectClass:public TclClass
 
 SatRouteObject* SatRouteObject::instance_;
 
-SatRouteObject::SatRouteObject() : suppress_initial_computation_(0), period(ROUTEREFRESHPERIOD)
+SatRouteObject::SatRouteObject() : suppress_initial_computation_(0),period(ROUTEREFRESHPERIOD)
 {
+	route_before_ = 0;
+	diffcount_ = 0;
 	bind_bool("wiredRouting_", &wiredRouting_);
 	bind_bool("metric_delay_", &metric_delay_);
 	bind_bool("data_driven_computation_", &data_driven_computation_);
+}
+
+SatRouteObject::~SatRouteObject(){
+	delete[] route_before_;
 }
 
 int SatRouteObject::command (int argc, const char *const *argv)
@@ -818,13 +454,7 @@ int SatRouteObject::command (int argc, const char *const *argv)
 			return (TCL_OK);
 		}
 		if (strcmp(argv[1], "compute_routes") == 0) {
-			printf("SatRouteObject doing command recompute global routes...\n");
-			// MODIFIED(wzf)
-			// 只计算卫星节点
-			recompute_sat_Global();
-			//recompute_Global();
-			// MODIFIED END
-			printf("SatRouteObject doing command recompute global routes finish...\n");
+			recompute_Global();
 			return (TCL_OK);
 		}
 		if (strcmp(argv[1], "dump") == 0) {
@@ -867,6 +497,11 @@ void* SatRouteObject::lookup_adj_entry(int s, int d)
 	return (adj_[INDEX(src, dst, size_)].entry);
 }
 
+void SatRouteObject::just_compute_node(int node){
+	node_compute_routes(node);
+	save_rtable_for_node(node);
+}
+
 void SatRouteObject::recompute_node(int node) {
 	double temp_store_adj[MUlTIPATH_NUM];
 
@@ -880,25 +515,21 @@ void SatRouteObject::recompute_node(int node) {
 	// MODIFIED END
 	node_compute_routes(node);
 	populate_routing_tables(node);
-	
-	if (node > 65)
+	if (node>65)
 		return;
-	
-	// COMMENTS(wzf)
-	// 构建其他路径
-	// COMMENTS END
-	// compute the other routes for each destination
-	int desNums = snodep->ragent()->get_maxslot() + 1;
+	//compute the other routes for each destination
+	int desNums = snodep->ragent()->get_maxslot()+1;
 	for (int j = 0; j < desNums; j++) {
 		for (int i = 1; i < MUlTIPATH_NUM; i++) {
 			int nexthop;
 			// set the distance to the former nextHops to infinity
-			for (int k = 0; (nexthop = snodep->ragent()->getSlot()[j].next_hop[k]) != -1; k++) {
+			for (int k = 0; (nexthop =
+					snodep->ragent()->getSlot()[j].next_hop[k]) != -1; k++) {
 				// MODIFIED
 				//printf("k %d: node %d to node %d nexthop %d\n", k, node, j, nexthop);
 				// MODIFIED END
-				temp_store_adj[k] = ADJ((node + 1), (nexthop + 1));
-				ADJ((node + 1), (nexthop + 1)) = SAT_ROUTE_INFINITY;
+				temp_store_adj[k] = ADJ((node+1),(nexthop+1));
+				ADJ((node+1),(nexthop+1)) = SAT_ROUTE_INFINITY;
 			}
 			//compute and add another route
 			node_compute_routes(node);
@@ -932,11 +563,45 @@ void SatRouteObject::recompute()
 	}
 }
 
+void SatRouteObject::compare_route(){
+
+	double time = Scheduler::instance().clock();
+	printf("In compare_route now at time %f\n",time);
+	int n = size_,v,count=0;
+	for(v=0;v<n*n;v++){
+		if(route_[v].next_hop!=route_before_[v].next_hop){
+			count++;
+		}
+	}
+	diffcount_+=count;
+	printf("wrong path in this period: %d\n",count);
+	printf("total wrong path: %d\n", diffcount_);
+}
+
+void SatRouteObject::just_compute(){
+	if (NOW < 0.001)
+		return;
+	double time = Scheduler::instance().clock();
+	printf("In just_compute now at time %f\n",time);
+	compute_topology();
+	SatNode *snodep = (SatNode*) Node::nodehead_.lh_first;
+
+	while (snodep != 0) {
+		// First, clear slots of the current routing table
+		if (snodep->ragent())
+			snodep->ragent()->clear_slots();
+		int curNode = snodep->address();
+		just_compute_node(curNode);
+		snodep = (SatNode*) snodep->nextnode();
+	}
+}
+
 void SatRouteObject::recompute_Global()
 {
 	if (NOW < 0.001)
 		return;
-	printf("SatRouteObject: In recompute_Global now at time %.6f\n", NOW);
+	double time = Scheduler::instance().clock();
+	printf("In recompute_Global now at time %f\n",time);
 	compute_topology();
 	SatNode *snodep = (SatNode*) Node::nodehead_.lh_first;
 	
@@ -945,245 +610,15 @@ void SatRouteObject::recompute_Global()
 		if (snodep->ragent())
 			snodep->ragent()->clear_slots();
 		int curNode = snodep->address();
-		//printf("computing routes for node %d\n", curNode);
 		recompute_node(curNode);
 		snodep = (SatNode*) snodep->nextnode();
 	}
-	printf("SatRouteObject: recompute_Global finish at time %.6f\n", NOW);
 }
-
-// MODIFIED(wzf)
-// 重新计算卫星节点的路由
-void SatRouteObject::recompute_sat_node(SatNode* satnodep) {
-	// 判断是否是卫星节点
-	if (satnodep == 0 || !satnodep->get_node_type()) {
-		printf("SatRouteObject: Invalid SatNode object.\n");
-		exit(-1);
-	}
-	
-	double temp_store_adj[MUlTIPATH_NUM];
-	
-	// 否则的话会出错
-	//satnodep->ragent()->clear_slots();
-	
-	int sataddr = satnodep->address();
-	node_compute_routes(sataddr);
-	populate_sat_routing_tables(sataddr);
-	
-	// 构建其他路径
-	// compute the other routes for each destination
-	for (int j = 0; j < 66; j++) {
-		// 不用计算到自身的路由
-		if (j == sataddr)
-			continue;
-		// 分三步：
-		//	1 首先将到目的卫星j的所有路径断开
-		//	2 计算该拓扑下的路由
-		//	3 恢复之前的路由
-		for (int i = 1; i < MUlTIPATH_NUM; i++) {
-			int nexthop;
-			// set the distance to the former nextHops to infinity
-			for (int k = 0; (nexthop = satnodep->ragent()->getSlot()[j].next_hop[k]) != -1; k++) {
-				//printf("k %d: node %d to node %d nexthop %d\n", k, node, j, nexthop);
-				temp_store_adj[k] = ADJ((sataddr + 1), (nexthop + 1));
-				ADJ((sataddr + 1), (nexthop + 1)) = SAT_ROUTE_INFINITY;
-			}
-			//compute and add another route
-			node_compute_routes(sataddr);
-			populate_rtable_for_node(sataddr, j);
-			// set back the former distance
-			for (int s = 0; (temp_store_adj[s] > 0.00000001) && ((nexthop =
-					satnodep->ragent()->getSlot()[j].next_hop[s]) != -1); s++) {
-				ADJ((sataddr + 1), (nexthop + 1)) = temp_store_adj[s];
-				temp_store_adj[s] = 0.0;
-			}
-		}
-	}
-}
-
-// 计算卫星网络拓扑中的路由
-void SatRouteObject::recompute_sat_Global()
-{
-	if (NOW < 0.001)
-		return;
-	
-	printf("SatRouteObject: In recompute_sat_Global now at time %f\n", NOW);
-	compute_sat_topology();
-	SatNode *snodep = (SatNode*) Node::nodehead_.lh_first;
-	
-	for (; snodep; snodep = (SatNode*)snodep->nextnode()) {
-		// 判断节点的类型
-		if (!snodep->get_node_type()) {
-			// 地面节点，跳过
-			continue;	
-		}
-		// First, clear slots of the current routing table
-		if (snodep->ragent())
-			snodep->ragent()->clear_slots();
-		recompute_sat_node(snodep);
-	}
-	printf("SatRouteObject: recompute_sat_Global finish at time %f\n", NOW);
-}
-
-// 计算所有卫星节点构成的拓扑
-void SatRouteObject::compute_sat_topology()
-{
-	printf("SatRouteObject: In compute_sat_topology\n");
-	
-	Node *nodep;
-	Phy *phytxp, *phyrxp;
-	SatLinkHead *slhp;
-	Channel *channelp;
-	int src, dst; 
-	double delay;
-	double queuedelay;
-
-	reset_all();
-	// Compute adjacencies.  Traverse linked list of nodes 
-        for (nodep=Node::nodehead_.lh_first; nodep; nodep = nodep->nextnode()) {
-		// 判断节点的类型
-		SatNode* satnodep = (SatNode*)nodep;
-		if (!satnodep->get_node_type())
-	        	continue;
-	
-		for (slhp = (SatLinkHead*) nodep->linklisthead().lh_first; slhp; slhp = (SatLinkHead*) slhp->nextlinkhead()) {
-			if (!slhp->get_link_type() || !slhp->linkup_)
-				continue;
-		
-			phytxp = (Phy *) slhp->phy_tx();
-			assert(phytxp);
-			channelp = phytxp->channel();
-			if (!channelp) 
-	 	    		continue; // Not currently connected to channel
-			// Next, look for receive interfaces on this channel
-			phyrxp = channelp->ifhead_.lh_first;
-			if (phyrxp->nextchnl()) {
-				printf("SatRouteObject: this ISL has more than one target.\n");
-				exit(-1);
-			}
-			
-		        src = phytxp->node()->address() + 1;
-		        dst = phyrxp->node()->address() + 1;
-			if (metric_delay_) {
-				// 传播时延 + 排队时延
-				delay = ((SatChannel*)channelp)->get_pdelay(phytxp->node(), phyrxp->node());
-				queuedelay = (slhp->queue()->length()) * 8.0 * 1000 / (slhp->mac()->bandwidth()); // avgpkt size = 1000Byte
-			} else
-		  		delay = 1;
-			
-			insert_link(src, dst, delay + queuedelay, (void*)slhp);
-		}
-	}
-}
-
-// 将路由表安装到卫星节点
-void SatRouteObject::populate_sat_routing_tables(int node)
-{
-	SatNode *snodep = (SatNode*) Node::nodehead_.lh_first;
-	SatNode *snodep2;
-	int next_hop, src, dst;
-	NsObject *target;
-
-        for (; snodep; snodep = (SatNode*) snodep->nextnode()) {
-		if (!snodep->get_node_type())
-			continue;
-		src = snodep->address();
-		if (node != -1 && node != src)
-			continue;
-		
-		snodep2 = (SatNode*) Node::nodehead_.lh_first;
-		for (; snodep2; snodep2 = (SatNode*) snodep2->nextnode()) {
-                        if (!snodep2->get_node_type())
-                                continue;
-			
-			dst = snodep2->address();
-			next_hop = lookup(src, dst);
-			if (next_hop != -1 && src != dst) {
-				// Here need to insert target into slot table
-				target = (NsObject*) lookup_entry(src, dst);
-				if (target == 0) {
-					printf("SatRouteObject: Error, src(%d) -> dst(%d) has a null target at time %.6f\n", src, dst, NOW);
-					exit(1);
-				}
-				snodep->ragent()->install(dst, next_hop, target); 
-			}
-		}
-	}
-}
-
-// 得到数据包的目的端所连接的卫星编号
-int SatRouteObject::get_dst_sat(Packet* p)
-{
-	SatChannel* schan;
-	Phy* remote_phy;
-	
-	hdr_ip* iph = hdr_ip::access(p);
-	int term_dst = Address::instance().get_nodeaddr(iph->daddr());
-
-	SatNode* dstnode = (SatNode*) Node::get_node_by_address(term_dst);
-	SatLinkHead* slhp = (SatLinkHead*) dstnode->linklisthead().lh_first;
-	if (slhp->nextlinkhead()) {
-		printf("SatRouteAgent: Terminal %d has more than gsl link.\n", dstnode->address());
-		exit(-1);
-	}
-
-	schan = (SatChannel*) slhp->phy_tx()->channel();
-	if (schan == 0) {
-		printf("SatRouteAgent: Terminal %d has not joined the satellite network.\n", dstnode->address());
-		return -2;
-	}
-
-	remote_phy = schan->ifhead_.lh_first;
-	if (remote_phy == 0) {
-		printf("SatRouteAgent: The remote satellite to terminal %d is down.\n", dstnode->address());
-		exit(-1);
-	}
-
-	if (remote_phy->nextchnl()) {
-		printf("SatRouteAgent: The gsl of terminal %d has more than one target.\n", dstnode->address());
-		exit(-1);
-	} else {
-		int sataddr = remote_phy->head()->node()->address();
-		return sataddr;
-	}
-	return -1;
-}
-
-// 得到链路对端连接到的卫星
-SatNode* SatRouteObject::get_peer(SatLinkHead* slhp)
-{
-	if (slhp == NULL) {
-		printf("SatRouteObject: This input SatLinkHead argument is null.\n");
-		return NULL;
-	}
-	
-	SatChannel* schan = NULL;
-	Phy* remote_phy = NULL;
-	
-	schan = (SatChannel*) slhp->phy_tx()->channel();
-	if (schan == NULL) {
-		printf("SatRouteObject: the initial end has not joined the satellite network.\n");
-		return NULL;
-	}
-	
-	remote_phy = schan->ifhead_.lh_first;
-	if (remote_phy == NULL)
-		return NULL;
-
-	if (remote_phy->nextchnl()) {
-		printf("SatRouteObject: this ISL has more than target.\n");
-		return NULL;
-	}
-	
-	return (SatNode*) remote_phy->head()->node();
-}
-// MODIFIED END
 
 // Derives link adjacency information from the nodes and gives the current
 // topology information to the RouteLogic.
 void SatRouteObject::compute_topology()
 {
-	printf("In compute_topology now...\n");
 	Node *nodep;
 	Phy *phytxp, *phyrxp, *phytxp2, *phyrxp2;
 	SatLinkHead *slhp;
@@ -1264,22 +699,31 @@ void SatRouteObject::compute_topology()
 		        dst = phyrxp->node()->address() + 1;
 			if (metric_delay_)
 			{
-				// COMMENTS(wzf)
-				// 传播时延 + 排队时延
-				// COMMENTS END
-				delay = ((SatChannel*)channelp)->get_pdelay(phytxp->node(), phyrxp->node());
-				queuedelay = (slhp->queue()->length()) * 8.0 * 1000 / (slhp->mac()->bandwidth()); // avgpkt size = 1000Byte
+		            delay = ((SatChannel*) 
+		              channelp)->get_pdelay(phytxp->node(), 
+			      phyrxp->node());
+		            queuedelay = (slhp->queue()->length())*8.0*1000/(slhp->mac()->bandwidth()); // avgpkt size = 1000Byte
 			}
 			else
 			    delay = 1;
-			
-			insert_link(src, dst, delay + queuedelay, (void*)slhp);
+			insert_link(src, dst, delay+queuedelay, (void*)slhp);
 		    }
 		}
 	    }
 	}
-	printf("compute_topology finish...\n");
 	//dump();
+}
+
+void SatRouteObject::save_rtable_for_node(int node){
+	int n = size_;
+	int v = 0;
+
+	delete[] route_before_;
+	route_before_ = new route_entry[n*n];
+	memset((char *)route_before_, 0, n * n * sizeof(route_before_[0]));
+	for(v=0;v<n;v++){
+		ROUTEBEFORE(node,v) = ROUTE(node,v);
+	}
 }
 
 void SatRouteObject::populate_routing_tables(int node)
@@ -1293,7 +737,7 @@ void SatRouteObject::populate_routing_tables(int node)
 		Tcl::instance().evalf("[Simulator instance] populate-flat-classifiers [Node set nn_]");
 		return;
 	}
-        for (; snodep; snodep = (SatNode*) snodep->nextnode()) {
+    for (; snodep; snodep = (SatNode*) snodep->nextnode()) {
 		if (!SatNode::IsASatNode(snodep->address()))
 			continue;   
 		src = snodep->address();
@@ -1305,9 +749,6 @@ void SatRouteObject::populate_routing_tables(int node)
                                 continue;
 			dst = snodep2->address();
 			next_hop = lookup(src, dst);
-			// COMMENTS(wzf)
-			// 这里应该不会受代码改动的太大影响
-			// COMMENTS END
 			if (next_hop != -1 && src != dst) {
 				// Here need to insert target into slot table
 				target = (NsObject*) lookup_entry(src, dst);
@@ -1321,7 +762,6 @@ void SatRouteObject::populate_routing_tables(int node)
 			}
 		}
 	}
-		
 }
 
 int SatRouteObject::lookup(int s, int d)
@@ -1357,6 +797,8 @@ void SatRouteObject::dump()
         }
 }
 
+
+
 void SatRouteObject::node_compute_routes(int node)
 {
         int n = size_;
@@ -1366,13 +808,7 @@ void SatRouteObject::node_compute_routes(int node)
         //double temp_from_lasthop = ADJ((lasthop+1),(node+1));
         //ADJ((node+1),(lasthop+1))= SAT_ROUTE_INFINITY;
         //ADJ((lasthop+1),(node+1))= SAT_ROUTE_INFINITY;
-        
-	// MODIFIED(wzf)
-	// delete route_;
-	// 以防万一
-	if (route_)
-		delete[] route_;
-	// MODIFIED END
+        delete[] route_;
         route_ = new route_entry[n * n];
         memset((char *)route_, 0, n * n * sizeof(route_[0]));
         /* compute routes only for node "node" */
@@ -1434,25 +870,24 @@ void SatRouteObject::node_compute_routes(int node)
 }
 
 
-void SatRouteObject::populate_rtable_for_node(int node, int dst)
+void SatRouteObject::populate_rtable_for_node(int node,int dst)
 {
 	int next_hop;
 	NsObject *target;
 	SatNode *snodep = (SatNode*) Node::nodehead_.lh_first;
-	
+
 	while(snodep->address()!= node)
 		snodep = (SatNode*) snodep->nextnode();
-	
 	next_hop = lookup(node, dst);
 	if (next_hop != -1 && node != dst) {
-		// Here need to insert target into slot table
-		target = (NsObject*) lookup_entry(node, dst);
-		if (target == 0) {
-			printf("Error, routelogic target");
-			printf("not populated %f\n", NOW);
-			exit(1);
-		}
-		((SatNode*)snodep)->ragent()->install(dst,
-		next_hop, target);
+					// Here need to insert target into slot table
+					target = (NsObject*) lookup_entry(node, dst);
+					if (target == 0) {
+						printf("Error, routelogic target ");
+						printf("not populated %f\n", NOW);
+						exit(1);
+					}
+					((SatNode*)snodep)->ragent()->install(dst,
+					    next_hop, target);
 	}
 }

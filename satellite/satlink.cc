@@ -76,11 +76,6 @@ SatLinkHead::SatLinkHead() : linkup_(1), phy_tx_(0), phy_rx_(0), mac_(0), satll_
 
 int SatLinkHead::command(int argc, const char*const* argv)
 {
-	// MODIFIED(wzf)
-	// 得到Tcl类的实例
-	Tcl& tcl = Tcl::instance();
-	// MODIFIED END
-	
 	if (argc == 2) {
 	} else if (argc == 3) {
 		if (strcmp(argv[1], "set_type") == 0) {
@@ -140,14 +135,6 @@ int SatLinkHead::command(int argc, const char*const* argv)
 			if (errmodel_ == 0)
 				return TCL_ERROR;
 			return TCL_OK;
-		} else if (strcmp(argv[1], "set_link_type") == 0) {
-			int itmp = atoi(argv[2]);
-			if (itmp != 0 && itmp != 1) {
-				tcl.resultf("SatLinkHead: Invalid link type %s.\n", argv[2]);
-				return (TCL_ERROR);
-			}
-			link_type_ = itmp;
-			return (TCL_OK);
 		}
 	}
 	return (LinkHead::command(argc, argv));

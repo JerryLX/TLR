@@ -46,9 +46,6 @@ Node/SatNode instproc init args {
 	eval $self next $args		;# parent class constructor
 
 	$self instvar nifs_ 
-	# COMMENTS(wzf)
-	# 下面这条语句中有声明sscm_变量，即状态检查器
-	# COMMENTS END
 	$self instvar phy_tx_ phy_rx_ mac_ ifq_ ll_ pos_ hm_ sscm_ id_
 
 	set nifs_	0		;# number of network interfaces
@@ -84,9 +81,6 @@ Node/SatNode instproc reset {} {
 		if {[info exists hm_]} {
 			$ns at 0.0 "$self start_handoff"
 		}
-		# COMMENTS(wzf)
-		# 这里最终触发执行状态检测的动作
-		# COMMENTS END
 	        if {[info exists sscm_]} {
 		        $ns at 0.1 "$self start_checkstate"
 		}
@@ -180,9 +174,6 @@ Simulator instproc newsatnode {} {
 	return $node
 }
 
-# COMMENTS(wzf)
-# 这里真正执行添加satstatecheck管理器
-# COMMENTS END
 Node/SatNode instproc set-position args {
 	set ns_ [Simulator instance]
 	set nodetype_ [$ns_ set satNodeType_]
@@ -200,18 +191,9 @@ Node/SatNode instproc set-position args {
 		$self cmd set_handoff_mgr [$self set hm_]
 		[$self set hm_] setnode $self
                 # Set up statecheck manager
-		# COMMENTS(wzf)
-		# SatNode类和SatStateCheck类分别存储对方的指针
-		# COMMENTS END
 	        $self set sscm_ [new StateCheckManager]
 	        $self cmd set_statecheck_mgr [$self set sscm_]
                 [$self set sscm_] setnode $self
-
-		# MODIFIED(wzf)
-		# 设置节点的类型为卫星节点
-		$self cmd set_node_type 1
-		# MODIFIED END
-		
 	} elseif {$nodetype_ == "geo" || $nodetype_ == "geo-repeater"} {
 		if {[llength $args] != 1 } {
 			puts "Error:  satNodeType_ is geo, but number\
@@ -233,15 +215,10 @@ Node/SatNode instproc set-position args {
 		$self set hm_ [new HandoffManager/Term]
 		$self cmd set_handoff_mgr [$self set hm_]
 		[$self set hm_] setnode $self
-		# Set up statecheck manager
-		# $self set sscm_ [new StateCheckManager]
-		# $self cmd set_statecheck_mgr [$self set sscm_]
-		# [$self set sscm_] setnode $self
-		
-		# MODIFIED(wzf)
-		# 设置节点的类型为地面节点
-		$self cmd set_node_type 0
-		# MODIFIED END
+# Set up statecheck manager
+#	        $self set sscm_ [new StateCheckManager]
+#	        $self cmd set_statecheck_mgr [$self set sscm_]
+ #               [$self set sscm_] setnode $self
 	} else {
 		puts "Error:  satNodeType_ not set appropriately:\
 		     $satNodeType_ exiting"
@@ -385,9 +362,6 @@ Simulator instproc add-isl {ltype node1 node2 bw qtype qlim} {
 		$node2 add-interface $ltype $opt_ll $qtype $qlim $opt_mac $bw $opt_phy 
 		
 	}
-	# COMMENTS(wzf)
-	# 调用SatNode类中的add_neighbor方法
-	# COMMENTS END
         $node1 cmd add_neighbor $node2
         $node2 cmd add_neighbor $node1
 }
@@ -475,18 +449,7 @@ Node/SatNode instproc add-interface args {
 	$linkhead target $ll; 
 	$linkhead set_type $linktype
 	$linkhead set type_ $linktype
-	
-	# MODIFIED(wzf)
-	# 设置链路类型
-	if {$linktype == "gsl" || $linktype == "polar"} {
-		$linkhead cmd set_link_type 0
-	}
 
-	if {$linktype == "intraplane" || $linktype == "interplane" || $linktype == "crossseam"} {
-		$linkhead cmd set_link_type 1
-	}
-	# MODIFIED END
-	
 	# 
 	# NetworkInterface
 	#
@@ -864,6 +827,5 @@ Mac/Sat set bandwidth_ 2Mb
 
 
 # MODIFIED
-# 根据文章进行设置
-StateCheckManager set sat_statecheck_int_ 0.006
+StateCheckManager set sat_statecheck_int_ 0.005
 # MODIFIED END

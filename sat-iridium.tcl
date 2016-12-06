@@ -60,6 +60,31 @@ source sat-iridium-nodes.tcl
 # configure the ISLs
 source sat-iridium-links.tcl
 
+## Set up terrestrial nodes
+$ns node-config -satNodeType terminal
+set n100 [$ns node]
+$n100 set-position 40.7 -124.0; # NewYork,NA
+set n101 [$ns node]
+$n101 set-position 34.5 -71.4; # ShangHai,ASIA 
+# Add GSL links
+# It doesn't matter what the sat node is (handoff algorithm will reset it)
+$n100 add-gsl polar $opt(ll) $opt(ifq) $opt(qlim) $opt(mac) $opt(bw_up) \
+  $opt(phy) [$n0 set downlink_] [$n0 set uplink_]
+$n101 add-gsl polar $opt(ll) $opt(ifq) $opt(qlim) $opt(mac) $opt(bw_up) \
+  $opt(phy) [$n0 set downlink_] [$n0 set uplink_]
+# Trace all queues
+$ns trace-all-satlinks $outfile
+# Attach agents
+set udp0 [new Agent/UDP]
+$ns attach-agent $n100 $udp0
+set cbr0 [new Application/Traffic/CBR]
+$cbr0 attach-agent $udp0
+$cbr0 set interval_ 0.5
+set null0 [new Agent/Null]
+$ns attach-agent $n101 $null0
+$ns connect $udp0 $null0
+$ns at 1.0 "$cbr0 start"
+
 ## Set up probe terrestrial nodes
 #$ns node-config -satNodeType terminal
 #set n100 [$ns node]
@@ -75,21 +100,21 @@ source sat-iridium-links.tcl
 ## Trace all queues
 #$ns trace-all-satlinks $outfile
 ## Attach agents
-#set udp0 [new Agent/UDP]
-#$ns attach-agent $n100 $udp0
-#set cbr0 [new Application/Traffic/CBR]
-#$cbr0 attach-agent $udp0
-#$cbr0 set packetSize_ 1000
-#$cbr0 set interval_ 0.5
-#set null0 [new Agent/Null]
-#$ns attach-agent $n101 $null0
-#$ns connect $udp0 $null0
-#$ns at 0.5 "$cbr0 start"
-#############################################
+#set udp400 [new Agent/UDP]
+#$ns attach-agent $n100 $udp400
+#set cbr400 [new Application/Traffic/CBR]
+#$cbr400 attach-agent $udp400
+##$cbr400 set packetSize_ 1000
+#$cbr400 set interval_ 0.5
+#set null400 [new Agent/Null]
+#$ns attach-agent $n101 $null400
+#$ns connect $udp400 $null400
+#$ns at 1.0 "$cbr400 start"
+##############################################
 #$ns node-config -satNodeType terminal
 #set n102 [$ns node]
 #$n102 set-position 35.4 139.5; # Tokyo,ASIA
-#set n103 [$ns node]
+##set n103 [$ns node]
 #$n103 set-position 51.3 0.1; # London,EUR 
 ## Add GSL links
 ## It doesn't matter what the sat node is (handoff algorithm will reset it)
@@ -110,7 +135,7 @@ source sat-iridium-links.tcl
 #$ns attach-agent $n103 $null1
 #$ns connect $udp1 $null1
 #$ns at 0.5 "$cbr1 start"
-###########################################
+############################################
 #$ns node-config -satNodeType terminal
 #set n104 [$ns node]
 #$n104 set-position 48.5 2.2; # Paris,EUR
@@ -129,7 +154,7 @@ source sat-iridium-links.tcl
 #$ns attach-agent $n104 $udp2
 #set cbr2 [new Application/Traffic/CBR]
 #$cbr2 attach-agent $udp2
-#$cbr2 set packetSize_ 1000
+##$cbr2 set packetSize_ 1000
 #$cbr2 set interval_ 0.5
 #set null2 [new Agent/Null]
 #$ns attach-agent $n105 $null2
@@ -238,21 +263,21 @@ source sat-iridium-links.tcl
 #$ns at 0.5 "$cbr5 start"
 #
 
-
-# Trace all queues
-$ns trace-all-satlinks $outfile
-# Attach agents
-set udp0 [new Agent/UDP]
-$ns attach-agent $n25 $udp0
-set cbr0 [new Application/Traffic/CBR]
-$cbr0 attach-agent $udp0
-$cbr0 set packetSize_ 1000
-$cbr0 set rate_ 1Mb
-#$cbr0 set interval_ 0.5
-set null0 [new Agent/Null]
-$ns attach-agent $n46 $null0
-$ns connect $udp0 $null0
-$ns at 0.5 "$cbr0 start"
+####by lixu
+## Trace all queues
+#$ns trace-all-satlinks $outfile
+## Attach agents
+#set udp0 [new Agent/UDP]
+#$ns attach-agent $n25 $udp0
+#set cbr0 [new Application/Traffic/CBR]
+#$cbr0 attach-agent $udp0
+#$cbr0 set packetSize_ 1000
+#$cbr0 set rate_ 1Mb
+##$cbr0 set interval_ 0.5
+#set null0 [new Agent/Null]
+#$ns attach-agent $n46 $null0
+#$ns connect $udp0 $null0
+#$ns at 0.5 "$cbr0 start"
 
 ## Trace all queues
 #$ns trace-all-satlinks $outfile
@@ -403,8 +428,8 @@ $ns at 0.5 "$cbr0 start"
 #$ns connect $udp8 $null8
 #$ns at 0.53 "$cbr8 start"
 #
-##Using some background traffic flow
-source sat-iridium-bg.tcl
+#Using some background traffic flow
+#source sat-iridium-bg.tcl
 #
 # We're using a centralized routing genie-- create and start it here
 #debug 1

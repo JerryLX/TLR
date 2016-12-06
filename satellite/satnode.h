@@ -47,14 +47,14 @@
 #include "assert.h"
 
 
-#define GREEN		1
-#define YELLOW		2
-#define RED		3
-#define NEIGHBORS	4
+#define GREEN 1
+#define YELLOW 2
+#define RED 3
+#define NEIGHBORS 4
 
-#define MTTW		3 // maximum time to wait for pkt in the waitingQueue
-#define RATIO		5 // ratio between waitingQueue checking period and satqueuestate checking period
-#define WLMAXLENGTH	100
+#define MTTW 3	 //maximum time to wait for pkt in the waitingQueue
+#define RATIO 5 //ratio between waitingQueue checking period and satqueuestate checking period
+#define WLMAXLENGTH  100
 
 class LinkHandoffMgr;
 class SatChannel;
@@ -97,13 +97,13 @@ class SatNode : public Node {
 	Channel* uplink() { return ((Channel*) uplink_);} 
 	Channel* downlink() { return ((Channel*) downlink_);} 
 	//int isDesSatNode(int);
-	
-	int satqueuestate_;				// show state of satellite,CMY,2012.8.24
-	NeighborState neistate[NEIGHBORS];		// show state of neighbor satellites,CMY,2012.8.24
-	NeighborState linkAndNxtHop[NEIGHBORS]; 	// show the integrated state of link and next hop,CMY,2012.11.05
-	WaitList* waitingQueue;				// CMY,2012.10.7
-	std::map<std::pair<int,int>, int, comp> record;	// CMY,2012.10.8,to record which route was chosen last time
-	int ratioCount_;				// CMY,2012.10.9
+
+	int satqueuestate_;	// show state of satellite,CMY,2012.8.24
+	NeighborState neistate[NEIGHBORS];	// show state of neighbor satellites,CMY,2012.8.24
+	NeighborState linkAndNxtHop[NEIGHBORS];  // show the integrated state of link and next hop,CMY,2012.11.05
+	WaitList* waitingQueue; // CMY,2012.10.7
+	std::map<std::pair<int,int>,int,comp> record;  // CMY,2012.10.8,to record which route was chosen last time
+	int ratioCount_; //CMY,2012.10.9
 
 	// configuration parameters
 	static int dist_routing_;
@@ -111,26 +111,16 @@ class SatNode : public Node {
 	static int IsASatNode(int);
  protected:
         int command(int argc, const char*const* argv);
-	SatRouteAgent*		ragent_;
-	SatChannel* 		uplink_;
-	SatChannel*		downlink_;
-	SatPosition*		pos_;
-	SatTrace*		trace_; // a drop trace for packets that can't be routed
-	LinkHandoffMgr*		hm_; 
-	SatStateCheckMgr*	sscm_; // CMY,2012.7.30
+	SatRouteAgent* ragent_;
+	SatChannel* uplink_;
+	SatChannel* downlink_;
+	SatPosition* pos_;
+	SatTrace* trace_; // a drop trace for packets that can't be routed
+	LinkHandoffMgr* hm_; 
+	SatStateCheckMgr* sscm_;	// CMY,2012.7.30
 	void dumpSats();
-	static int*		satnodelist_;
-	static int		maxsatnodelist_;
-
-	// MODIFIED(wzf)
-public:
-	// 得到节点的类型
-	//	1 卫星节点
-	//	0 地面节点
-	int	get_node_type() { return node_type_; }
-private:
-	int	node_type_; // 1 卫星节点，0 地面节点 
-	// MODIFIED END
+	static int* satnodelist_;
+	static int maxsatnodelist_;
 };
 
 class WaitList {
@@ -143,7 +133,7 @@ class WaitList {
 	void resetIterator() {
 		iter = head_;
 	}
-	
+
 	WQPacket* getNext() {
 		if (!iter)
 			return 0;
@@ -151,7 +141,6 @@ class WaitList {
 		iter = iter->next;
 		return tmp;
 	}
-	
 	//For statistics
 	void inNumAdd() {inNum_++;}
 	void outNumAdd() {outNum_++;}
@@ -165,8 +154,8 @@ protected:
 	WQPacket* tail_;
 	int len_;		// packet count,remain count
 	int inNum_;		// packet in count
-	int outNum_;		// packet out count
-	int dropNum_;		// packet drop count
+	int outNum_;	// packet out count
+	int dropNum_;	// packet drop count
 private:
 	WQPacket *iter;
 };

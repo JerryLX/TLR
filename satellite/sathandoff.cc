@@ -310,22 +310,11 @@ int TermLinkHandoffMgr::handoff()
 			}
 		}
 	}
-	// COMMENTS(wzf)
-	// 当前地面节点连接的卫星发生了变化，重新计算路由
-	// 其实必须重新计算路由
-	// COMMENTS END
-	// MODIFIED(wzf)
-	// 地面节点不必重新计算路由
-	// 因为每个地面用户只连接一颗卫星
-	// 在任意时刻，每个地面用户只能向一颗卫星发送数据
-	// 真正需要计算的是卫星节点构成的拓扑，而不是所有节点构成的拓扑
-	//if (link_changes_flag_) {
-	//	double time = Scheduler::instance().clock();
-	//	printf("Terhandoff:%f\n",time);
-	//	SatRouteObject::instance().recompute_Global();
-	//}
-	// MODIFIED END
-	
+	if (link_changes_flag_) {
+		double time = Scheduler::instance().clock();
+		printf("Terhandoff:%f\n",time);
+		SatRouteObject::instance().recompute_Global();
+	}
 	if (restart_timer_flag_) {
 		// If we don't have polar GSLs, don't reset the timer
 		if (handoff_randomization_) {
@@ -505,28 +494,25 @@ int SatLinkHandoffMgr::handoff()
 			link_down_flag_ = TRUE;
 		link_down_flag_ |= !(SatGeometry::are_satellites_mutually_visible(peer_coord_, local_coord_));
 		if (slhp->linkup_ && link_down_flag_) {
-			// COMMENTS(wzf)
-			// 卫星之间连接断开
-			// COMMENTS END
 			/*delete related neighbors,add by chaomengyuan,2012.8.29*/
 			int neiAddr1 = peer_->address();
 			int neiAddr2 = this->node()->address();
 			SatNode* node = (SatNode*)this->node();
-			for(int i = 0; i < 4; i++)
+			for(int i =0;i<4;i++)
 			{
 				if(node->neistate[i].nexthop == neiAddr1)
 				{
-					node->neistate[i].nexthop	= -1;
-					node->neistate[i].state		= 0;
-					node->linkAndNxtHop[i].nexthop	= -1;
-					node->linkAndNxtHop[i].state	= 0;
+					node->neistate[i].nexthop = -1;
+					node->neistate[i].state = 0;
+					node->linkAndNxtHop[i].nexthop = -1;
+					node->linkAndNxtHop[i].state = 0;
 				}
 				if(peer_->neistate[i].nexthop == neiAddr2)
 				{
-					peer_->neistate[i].nexthop	= -1;
-					peer_->neistate[i].state	= 0;
+					peer_->neistate[i].nexthop = -1;
+					peer_->neistate[i].state = 0;
 					peer_->linkAndNxtHop[i].nexthop = -1;
-					peer_->linkAndNxtHop[i].state	= 0;
+					peer_->linkAndNxtHop[i].state = 0;
 				}
 			}
 			// Take links down if either satellite at high latitude
@@ -539,43 +525,32 @@ int SatLinkHandoffMgr::handoff()
 			    Tcl::instance().evalf("[Simulator instance] sat_link_destroy %d %d", peer_->address(), slhp->phy_tx()->node()->address());
 			}                                                       
 		} else if (!slhp->linkup_ && !link_down_flag_) {
-			// COMMENTS
-			// 卫星之间的连接恢复
-			// COMMENTS END
 			/*add related neighbors,add by chaomengyuan,2012.8.29*/
 			int neiAddr1 = peer_->address();
 			int neiAddr2 = this->node()->address();
 			SatNode* node = (SatNode*)this->node();
-			int i,j = 0;
+			int i,j=0;
 			while(i < NEIGHBORS && node->neistate[i].nexthop != 0) i++;
-			node->neistate[i].nexthop	= neiAddr1;
-			node->neistate[i].state		= GREEN;
-			node->linkAndNxtHop[i].nexthop	= neiAddr1;
-			node->linkAndNxtHop[i].state	= GREEN;
+			node->neistate[i].nexthop = neiAddr1;
+			node->neistate[i].state = GREEN;
+			node->linkAndNxtHop[i].nexthop = neiAddr1;
+			node->linkAndNxtHop[i].state = GREEN;
 			while(j < NEIGHBORS && peer_->neistate[j].nexthop != 0) j++;
-			peer_->neistate[j].nexthop	= neiAddr2;
-			peer_->neistate[j].state	= GREEN;
+			peer_->neistate[j].nexthop = neiAddr2;
+			peer_->neistate[j].state = GREEN;
 			peer_->linkAndNxtHop[i].nexthop = neiAddr2;
-			peer_->linkAndNxtHop[i].state	= GREEN;
+			peer_->linkAndNxtHop[i].state = GREEN;
 			// Take links up
 			slhp->linkup_ = TRUE;
 			peer_slhp->linkup_ = TRUE;
 			link_changes_flag_ = TRUE;
 		}
 	}
-	// COMMENTS(wzf)
-	// 卫星之间的链路发生变化，重新计算路由，不过应该重新计算所有卫星节点构成的路由
-	// COMMENTS END
 	if (link_changes_flag_)  {
-		printf("SatLinkHandoffMgr doing recompute global routes at time %.6f\n", NOW);
-		// MODIFIED(wzf)
-		// 计算卫星网络的路由
-		SatRouteObject::instance().recompute_sat_Global();
-		//SatRouteObject::instance().recompute_Global();
-		// MODIFIED END
-		printf("SatLinkHandoffMgr doing recompute global routes finish at time %.6f\n", NOW);
+		double time = Scheduler::instance().clock();
+		printf("sathandoff:%f\n",time);
+		SatRouteObject::instance().recompute_Global();
 	}
-	
 	if (handoff_randomization_) {
 		timer_.resched(sat_handoff_int_ + 
 		    handoff_rng_.uniform(-1 * sat_handoff_int_/2, 
